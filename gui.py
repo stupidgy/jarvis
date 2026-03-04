@@ -10,17 +10,24 @@ from storage import AppStorage
 class CalendarPetGUI:
     def __init__(self, root: tk.Tk, db_path: str):
         self.root = root
-        self.root.title("日历清单桌宠 - MVP")
-        self.root.geometry("980x680")
+        self.root.title("日历清单桌宠 - GUI")
+        self.root.geometry("1080x760")
 
         self.db = AppStorage(db_path)
         self.db.init_schema()
         self.db.seed_defaults()
         self.orchestrator = AgentOrchestrator(self.db)
-        self.current_proposal = None
 
+        self._configure_style()
         self._build_layout()
         self.refresh_tasks()
+
+    def _configure_style(self):
+        style = ttk.Style(self.root)
+        if "clam" in style.theme_names():
+            style.theme_use("clam")
+        style.configure("Header.TLabel", font=("Arial", 14, "bold"))
+        style.configure("Card.TLabelframe", padding=8)
 
     def _build_layout(self):
         notebook = ttk.Notebook(self.root)
@@ -30,19 +37,35 @@ class CalendarPetGUI:
         self.review_tab = ttk.Frame(notebook)
         self.agent_tab = ttk.Frame(notebook)
 
-        notebook.add(self.task_tab, text="任务日历清单")
+        notebook.add(self.task_tab, text="任务面板")
         notebook.add(self.review_tab, text="晚间复盘")
-        notebook.add(self.agent_tab, text="复杂目标拆分")
+        notebook.add(self.agent_tab, text="目标拆分")
 
         self._build_task_tab()
         self._build_review_tab()
         self._build_agent_tab()
 
     def _build_task_tab(self):
-        filters = ttk.LabelFrame(self.task_tab, text="查询区间")
-        filters.pack(fill="x", padx=8, pady=8)
+        self.task_tab.columnconfigure(0, weight=1)
 
-        ttk.Label(filters, text="开始日期(YYYY-MM-DD)").grid(row=0, column=0, padx=6, pady=6)
+        summary = ttk.LabelFrame(self.task_tab, text="今日概览", style="Card.TLabelframe")
+        summary.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+
+        self.todo_count_var = tk.StringVar(value="0")
+        self.done_count_var = tk.StringVar(value="0")
+        self.total_est_var = tk.StringVar(value="0 分钟")
+
+        ttk.Label(summary, text="待办", style="Header.TLabel").grid(row=0, column=0, padx=10)
+        ttk.Label(summary, textvariable=self.todo_count_var, style="Header.TLabel").grid(row=1, column=0, padx=10)
+        ttk.Label(summary, text="已完成", style="Header.TLabel").grid(row=0, column=1, padx=10)
+        ttk.Label(summary, textvariable=self.done_count_var, style="Header.TLabel").grid(row=1, column=1, padx=10)
+        ttk.Label(summary, text="总预计时长", style="Header.TLabel").grid(row=0, column=2, padx=10)
+        ttk.Label(summary, textvariable=self.total_est_var, style="Header.TLabel").grid(row=1, column=2, padx=10)
+
+        filters = ttk.LabelFrame(self.task_tab, text="筛选与查询")
+        filters.grid(row=1, column=0, sticky="ew", padx=8, pady=4)
+
+        ttk.Label(filters, text="开始日期").grid(row=0, column=0, padx=6, pady=6)
         self.start_date_var = tk.StringVar(value=str(date.today()))
         ttk.Entry(filters, textvariable=self.start_date_var, width=15).grid(row=0, column=1, padx=6, pady=6)
 
@@ -50,10 +73,18 @@ class CalendarPetGUI:
         self.end_date_var = tk.StringVar(value=str(date.today() + timedelta(days=7)))
         ttk.Entry(filters, textvariable=self.end_date_var, width=15).grid(row=0, column=3, padx=6, pady=6)
 
-        ttk.Button(filters, text="刷新任务", command=self.refresh_tasks).grid(row=0, column=4, padx=6, pady=6)
+        ttk.Label(filters, text="状态").grid(row=0, column=4, padx=6, pady=6)
+        self.status_filter_var = tk.StringVar(value="all")
+        ttk.Combobox(filters, textvariable=self.status_filter_var, values=["all", "todo", "done"], width=10, state="readonly").grid(row=0, column=5, padx=6, pady=6)
+
+        ttk.Label(filters, text="关键词").grid(row=0, column=6, padx=6, pady=6)
+        self.keyword_var = tk.StringVar()
+        ttk.Entry(filters, textvariable=self.keyword_var, width=18).grid(row=0, column=7, padx=6, pady=6)
+
+        ttk.Button(filters, text="刷新任务", command=self.refresh_tasks).grid(row=0, column=8, padx=6, pady=6)
 
         add_box = ttk.LabelFrame(self.task_tab, text="新增任务")
-        add_box.pack(fill="x", padx=8, pady=8)
+        add_box.grid(row=2, column=0, sticky="ew", padx=8, pady=4)
 
         self.task_date_var = tk.StringVar(value=str(date.today()))
         self.task_title_var = tk.StringVar()
@@ -79,18 +110,19 @@ class CalendarPetGUI:
         ttk.Button(add_box, text="添加任务", command=self.add_task).grid(row=1, column=5, padx=6, pady=6)
 
         table_box = ttk.LabelFrame(self.task_tab, text="任务列表")
-        table_box.pack(fill="both", expand=True, padx=8, pady=8)
+        table_box.grid(row=3, column=0, sticky="nsew", padx=8, pady=6)
+        self.task_tab.rowconfigure(3, weight=1)
 
         columns = ("id", "date", "title", "priority", "estimate", "status", "tags")
         self.task_tree = ttk.Treeview(table_box, columns=columns, show="headings", height=16)
         for col, title, w in [
             ("id", "ID", 50),
             ("date", "日期", 110),
-            ("title", "标题", 260),
+            ("title", "标题", 280),
             ("priority", "优先级", 80),
             ("estimate", "时长", 80),
             ("status", "状态", 90),
-            ("tags", "标签", 180),
+            ("tags", "标签", 200),
         ]:
             self.task_tree.heading(col, text=title)
             self.task_tree.column(col, width=w, anchor="center")
@@ -101,9 +133,9 @@ class CalendarPetGUI:
         scrollbar.pack(side="right", fill="y")
 
         action_bar = ttk.Frame(self.task_tab)
-        action_bar.pack(fill="x", padx=8, pady=8)
+        action_bar.grid(row=4, column=0, sticky="ew", padx=8, pady=8)
 
-        ttk.Button(action_bar, text="标记为完成", command=self.mark_done).pack(side="left", padx=6)
+        ttk.Button(action_bar, text="标记完成", command=self.mark_done).pack(side="left", padx=6)
 
         ttk.Label(action_bar, text="改期到").pack(side="left", padx=6)
         self.move_date_var = tk.StringVar(value=str(date.today() + timedelta(days=1)))
@@ -171,14 +203,27 @@ class CalendarPetGUI:
             messagebox.showerror("查询失败", str(exc))
             return
 
+        status_filter = self.status_filter_var.get().strip()
+        keyword = self.keyword_var.get().strip()
+        if status_filter != "all":
+            tasks = [t for t in tasks if t["status"] == status_filter]
+        if keyword:
+            tasks = [t for t in tasks if keyword.lower() in t["title"].lower() or keyword.lower() in (t.get("tags") or "").lower()]
+
         for item in self.task_tree.get_children():
             self.task_tree.delete(item)
 
         for t in tasks:
             self.task_tree.insert(
-                "", "end",
+                "",
+                "end",
                 values=(t["id"], t["date"], t["title"], t["priority"], t["estimate_min"], t["status"], t.get("tags", "")),
             )
+
+        summary = self.db.task_summary(self.start_date_var.get().strip(), self.end_date_var.get().strip())
+        self.todo_count_var.set(str(summary["todo"]))
+        self.done_count_var.set(str(summary["done"]))
+        self.total_est_var.set(f"{summary['total_estimate_min']} 分钟")
 
     def add_task(self):
         title = self.task_title_var.get().strip()
@@ -247,7 +292,6 @@ class CalendarPetGUI:
                 strategy=self.strategy_var.get().strip(),
                 max_tasks_per_day=int(self.max_tasks_var.get().strip()),
             )
-            self.current_proposal = proposal
             self.proposal_text.delete("1.0", "end")
             self.proposal_text.insert("1.0", json.dumps(proposal, ensure_ascii=False, indent=2))
         except Exception as exc:

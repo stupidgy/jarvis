@@ -121,3 +121,31 @@ class AppStorage:
                 (plan_id, task_id, milestone, confidence),
             )
             return cur.lastrowid
+
+
+    def update_task_status(self, task_id, status):
+        with self.connect() as conn:
+            conn.execute("UPDATE Task SET status = ? WHERE id = ?", (status, task_id))
+
+    def move_task(self, task_id, new_date):
+        with self.connect() as conn:
+            conn.execute("UPDATE Task SET date = ? WHERE id = ?", (new_date, task_id))
+
+    def task_summary(self, start_date, end_date):
+        with self.connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                    SUM(CASE WHEN status = 'todo' THEN 1 ELSE 0 END) AS todo,
+                    SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
+                    COALESCE(SUM(estimate_min), 0) AS total_estimate_min
+                FROM Task
+                WHERE date BETWEEN ? AND ?
+                """,
+                (start_date, end_date),
+            ).fetchone()
+            return {
+                "todo": rows["todo"] or 0,
+                "done": rows["done"] or 0,
+                "total_estimate_min": rows["total_estimate_min"] or 0,
+            }

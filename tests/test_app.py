@@ -35,5 +35,24 @@ class AppTests(unittest.TestCase):
         self.assertTrue(result["count"] > 0)
 
 
+    def test_update_move_and_summary(self):
+        tid1 = self.db.create_task("2026-03-10", "Task A", "high", 25, "todo")
+        tid2 = self.db.create_task("2026-03-11", "Task B", "medium", 35, "todo")
+
+        self.db.update_task_status(tid1, "done")
+        self.db.move_task(tid2, "2026-03-10")
+
+        tasks = self.db.list_tasks("2026-03-10", "2026-03-10")
+        self.assertEqual(len(tasks), 2)
+        statuses = {t["id"]: t["status"] for t in tasks}
+        self.assertEqual(statuses[tid1], "done")
+        self.assertEqual(statuses[tid2], "todo")
+
+        summary = self.db.task_summary("2026-03-10", "2026-03-10")
+        self.assertEqual(summary["todo"], 1)
+        self.assertEqual(summary["done"], 1)
+        self.assertEqual(summary["total_estimate_min"], 60)
+
+
 if __name__ == "__main__":
     unittest.main()
