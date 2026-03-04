@@ -85,9 +85,8 @@ class CalendarPetGUI:
         quick = ttk.LabelFrame(pet_panel, text="桌宠快捷动作")
         quick.pack(fill="x", padx=10, pady=(4, 12))
         ttk.Button(quick, text="刷新任务", command=lambda: self._pet_action("refresh")).grid(row=0, column=0, padx=6, pady=6)
-        ttk.Button(quick, text="标记完成", command=lambda: self._pet_action("done")).grid(row=0, column=1, padx=6, pady=6)
-        ttk.Button(quick, text="任务改期", command=lambda: self._pet_action("move")).grid(row=1, column=0, padx=6, pady=6)
-        ttk.Button(quick, text="添加任务", command=lambda: self._pet_action("add")).grid(row=1, column=1, padx=6, pady=6)
+        ttk.Button(quick, text="任务改期", command=lambda: self._pet_action("move")).grid(row=0, column=1, padx=6, pady=6)
+        ttk.Button(quick, text="添加任务", command=lambda: self._pet_action("add")).grid(row=1, column=0, columnspan=2, padx=6, pady=6, sticky="ew")
 
         right_panel = ttk.Frame(self.task_tab)
         right_panel.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=8)
@@ -151,7 +150,7 @@ class CalendarPetGUI:
         ttk.Entry(add_box, textvariable=self.task_tags_var, width=24).grid(row=2, column=1, columnspan=2, padx=6, pady=6, sticky="w")
         ttk.Button(add_box, text="添加任务", command=self.add_task).grid(row=2, column=3, padx=6, pady=6, sticky="e")
 
-        table_box = ttk.LabelFrame(right_panel, text="任务列表（选中后可标记完成 / 改期）")
+        table_box = ttk.LabelFrame(right_panel, text="任务列表（双击任务可完成，选中后可改期）")
         table_box.grid(row=3, column=0, sticky="nsew", pady=6)
         table_box.columnconfigure(0, weight=1)
         table_box.rowconfigure(0, weight=1)
@@ -170,6 +169,7 @@ class CalendarPetGUI:
             self.task_tree.heading(col, text=title)
             self.task_tree.column(col, width=w, anchor="center")
         self.task_tree.grid(row=0, column=0, sticky="nsew")
+        self.task_tree.bind("<Double-1>", self.on_task_double_click)
 
         scrollbar = ttk.Scrollbar(table_box, orient="vertical", command=self.task_tree.yview)
         self.task_tree.configure(yscrollcommand=scrollbar.set)
@@ -177,11 +177,10 @@ class CalendarPetGUI:
 
         actions = ttk.Frame(table_box)
         actions.grid(row=1, column=0, sticky="ew", pady=8)
-        ttk.Button(actions, text="标记选中任务完成", command=self.mark_done).grid(row=0, column=0, padx=6)
-        ttk.Label(actions, text="改期到", style="Hint.TLabel").grid(row=0, column=1, padx=6)
+        ttk.Label(actions, text="改期到", style="Hint.TLabel").grid(row=0, column=0, padx=6)
         self.move_date_var = tk.StringVar(value=str(date.today() + timedelta(days=1)))
-        ttk.Entry(actions, textvariable=self.move_date_var, width=14).grid(row=0, column=2, padx=6)
-        ttk.Button(actions, text="执行改期", command=self.move_selected_task).grid(row=0, column=3, padx=6)
+        ttk.Entry(actions, textvariable=self.move_date_var, width=14).grid(row=0, column=1, padx=6)
+        ttk.Button(actions, text="执行改期", command=self.move_selected_task).grid(row=0, column=2, padx=6)
 
     def _draw_pet(self):
         c = self.pet_canvas
@@ -343,6 +342,23 @@ class CalendarPetGUI:
         self.db.update_task_status(task_id, "done")
         self.refresh_tasks()
         self.pet_message_var.set("太棒了！我给这条任务打上完成勋章 ✅")
+
+    def on_task_double_click(self, _event=None):
+        task_id = self._selected_task_id()
+        if task_id is None:
+            return
+        selected = self.task_tree.selection()
+        if not selected:
+            return
+        values = self.task_tree.item(selected[0], "values")
+        status = values[5]
+        target_status = "done" if status != "done" else "todo"
+        self.db.update_task_status(task_id, target_status)
+        self.refresh_tasks()
+        if target_status == "done":
+            self.pet_message_var.set("双击完成任务成功！继续保持专注 ✅")
+        else:
+            self.pet_message_var.set("已恢复为待办，重新安排节奏也没问题。")
 
     def move_selected_task(self):
         task_id = self._selected_task_id()
