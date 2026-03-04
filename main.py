@@ -5,6 +5,7 @@ from datetime import date
 
 from storage import AppStorage
 from planner import AgentOrchestrator
+from gui import run_gui
 
 
 def cmd_init(args):
@@ -61,6 +62,11 @@ def cmd_apply_plan(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+
+
+def cmd_gui(args):
+    run_gui(args.db)
+
 def build_parser():
     parser = argparse.ArgumentParser(description="Calendar pet MVP CLI (L1: propose then execute)")
     parser.add_argument("--db", default="pet_calendar.db", help="SQLite database path")
@@ -100,6 +106,9 @@ def build_parser():
     p_apply = sub.add_parser("apply-plan", help="Apply approved plan JSON file")
     p_apply.add_argument("--file", required=True)
     p_apply.set_defaults(func=cmd_apply_plan)
+
+    p_gui = sub.add_parser("gui", help="Launch desktop GUI")
+    p_gui.set_defaults(func=cmd_gui)
 
     return parser
 
