@@ -21,6 +21,8 @@ python3 main.py init-db
 python3 main.py gui
 ```
 
+> 任务列表支持双击任务直接切换完成/待办状态，减少按钮操作。
+
 
 ### 添加任务
 ```bash
@@ -62,4 +64,3 @@ python3 main.py apply-plan --file plan.json
 
 - 默认运行在 **L1 建议层**：`propose-plan` 只输出 JSON，不会直接修改任务。
 - 用户显式执行 `apply-plan` 后，才会落库。
-
