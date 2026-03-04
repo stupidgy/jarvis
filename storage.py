@@ -121,11 +121,3 @@ class AppStorage:
                 (plan_id, task_id, milestone, confidence),
             )
             return cur.lastrowid
-
-    def update_task_status(self, task_id, status):
-        with self.connect() as conn:
-            conn.execute("UPDATE Task SET status=? WHERE id=?", (status, task_id))
-
-    def move_task(self, task_id, new_date):
-        with self.connect() as conn:
-            conn.execute("UPDATE Task SET date=?, status='delayed' WHERE id=?", (new_date, task_id))

@@ -3,9 +3,8 @@ import argparse
 import json
 from datetime import date
 
-from gui import run_gui
-from planner import AgentOrchestrator
 from storage import AppStorage
+from planner import AgentOrchestrator
 
 
 def cmd_init(args):
@@ -52,6 +51,7 @@ def cmd_propose_plan(args):
     print(json.dumps(proposal, ensure_ascii=False, indent=2))
 
 
+
 def cmd_apply_plan(args):
     db = AppStorage(args.db)
     orchestrator = AgentOrchestrator(db)
@@ -61,18 +61,11 @@ def cmd_apply_plan(args):
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
-def cmd_gui(args):
-    run_gui(args.db)
-
-
 def build_parser():
-    parser = argparse.ArgumentParser(description="Calendar pet app (GUI + CLI)")
+    parser = argparse.ArgumentParser(description="Calendar pet MVP CLI (L1: propose then execute)")
     parser.add_argument("--db", default="pet_calendar.db", help="SQLite database path")
 
-    sub = parser.add_subparsers(dest="command", required=False)
-
-    p_gui = sub.add_parser("gui", help="Launch graphical desktop app")
-    p_gui.set_defaults(func=cmd_gui)
+    sub = parser.add_subparsers(dest="command", required=True)
 
     p_init = sub.add_parser("init-db", help="Initialize database schema")
     p_init.set_defaults(func=cmd_init)
@@ -114,7 +107,4 @@ def build_parser():
 if __name__ == "__main__":
     parser = build_parser()
     args = parser.parse_args()
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        run_gui(args.db)
+    args.func(args)
